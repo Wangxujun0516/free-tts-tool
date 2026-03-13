@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="免费在线文字转语音工具 - AI语音合成器，支持中文普通话、粤语，调节语速、音调，一键朗读并收藏使用。2026最新免费版">
+    <title>免费在线文字转语音工具 | AI语音合成器 2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>body { font-family: system-ui; }</style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+    <div class="max-w-2xl mx-auto p-6">
+        <h1 class="text-4xl font-bold text-center mb-2">免费在线文字转语音工具</h1>
+        <p class="text-center text-gray-400 mb-8">浏览器AI语音合成 · 无需注册 · 完全免费</p>
+        
+        <textarea id="text" class="w-full h-48 bg-gray-900 border border-gray-700 rounded-xl p-6 text-lg focus:outline-none focus:border-blue-500" placeholder="在此输入你要朗读的文字...&#10;示例：大家好，我是Tim，今天分享我的副业网站。"></textarea>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-8">
+            <!-- 声音选择 -->
+            <div>
+                <label class="block text-sm mb-2">选择声音</label>
+                <select id="voice" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3"></select>
+            </div>
+            <!-- 语速 -->
+            <div>
+                <label class="block text-sm mb-2">语速 <span id="rateVal" class="font-mono">1.0</span></label>
+                <input type="range" id="rate" min="0.5" max="2" step="0.1" value="1" class="w-full accent-blue-500">
+            </div>
+            <!-- 音调 -->
+            <div>
+                <label class="block text-sm mb-2">音调 <span id="pitchVal" class="font-mono">1.0</span></label>
+                <input type="range" id="pitch" min="0.5" max="2" step="0.1" value="1" class="w-full accent-blue-500">
+            </div>
+        </div>
+        
+        <div class="flex gap-4 justify-center">
+            <button onclick="speak()" class="bg-blue-600 hover:bg-blue-700 px-10 py-4 rounded-2xl text-lg font-medium">▶️ 开始朗读</button>
+            <button onclick="pause()" class="bg-yellow-600 hover:bg-yellow-700 px-8 py-4 rounded-2xl">暂停</button>
+            <button onclick="stop()" class="bg-red-600 hover:bg-red-700 px-8 py-4 rounded-2xl">停止</button>
+        </div>
+        
+        <div id="status" class="text-center mt-6 text-green-400 font-medium"></div>
+    </div>
+    
+    <!-- AdSense占位（申请通过后替换） -->
+    <div class="max-w-2xl mx-auto px-6 mt-12 border-t border-gray-800 pt-8 text-center text-xs text-gray-500">
+        这里放AdSense广告位（336×280或300×250）
+    </div>
+    
+    <footer class="text-center text-gray-500 text-xs py-8">
+        纯前端工具 · 支持Chrome/Edge/Safari · 数据本地处理 · 2026副业版
+    </footer>
+
+    <script>
+        let synth = window.speechSynthesis;
+        let utterance;
+        let voices = [];
+        
+        function loadVoices() {
+            voices = synth.getVoices().filter(v => v.lang.includes('zh') || v.lang.includes('cn'));
+            const select = document.getElementById('voice');
+            select.innerHTML = '';
+            voices.forEach((voice, i) => {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `${voice.name} (${voice.lang})`;
+                select.appendChild(opt);
+            });
+            if (voices.length === 0) {
+                document.getElementById('status').textContent = '浏览器加载声音中...请稍等';
+            }
+        }
+        
+        synth.onvoiceschanged = loadVoices;
+        setTimeout(loadVoices, 1000); // 兼容部分浏览器
+        
+        function speak() {
+            if (utterance) synth.cancel();
+            utterance = new SpeechSynthesisUtterance(document.getElementById('text').value);
+            const idx = document.getElementById('voice').value;
+            if (voices[idx]) utterance.voice = voices[idx];
+            utterance.rate = parseFloat(document.getElementById('rate').value);
+            utterance.pitch = parseFloat(document.getElementById('pitch').value);
+            
+            synth.speak(utterance);
+            document.getElementById('status').textContent = '正在朗读...';
+        }
+        
+        function pause() { synth.pause(); document.getElementById('status').textContent = '已暂停'; }
+        function stop() { synth.cancel(); document.getElementById('status').textContent = '已停止'; }
+        
+        // 实时显示滑块数值
+        document.getElementById('rate').addEventListener('input', e => document.getElementById('rateVal').textContent = e.target.value);
+        document.getElementById('pitch').addEventListener('input', e => document.getElementById('pitchVal').textContent = e.target.value);
+        
+        // 示例文字
+        document.getElementById('text').value = '大家好，我是Tim。今天我用这个免费工具测试了2026年的副业网站，效果非常自然！';
+    </script>
+</body>
+</html>
