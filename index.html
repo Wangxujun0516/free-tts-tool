@@ -16,7 +16,7 @@ Limitations:
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#4f46e5" />
   <title>免费在线文字转语音工具 | Free TTS Tool</title>
-  <meta name="description" content="Free online text to speech tool. Local processing, bilingual UI, long text support." />
+  <meta name="description" content="免费在线文字转语音工具 | Free TTS Tool 2026 - 顶级AI语音合成，自然发音、无限免费、本地浏览器处理。支持中英粤语，适合短视频配音、有声书、学习朗读。 | Free Online Text to Speech Tool 2026 - AI TTS with natural voices, unlimited & local. Supports Chinese Mandarin/Cantonese/English. Perfect for video dubbing, audiobooks, learning." />
   <link rel="manifest" href="manifest.json" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -47,11 +47,6 @@ Limitations:
     <div class="text-center mb-10">
       <h2 class="text-3xl sm:text-5xl font-extrabold mb-4" data-i18n-html="heroTitle">让文字 <span class="gradient-text">开口说话</span></h2>
       <p class="text-zinc-400 text-sm sm:text-base max-w-xl mx-auto" data-i18n="heroDesc">支持长文本，纯前端本地处理。</p>
-    </div>
-
-    <div class="mb-6 px-4 py-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 text-sm">
-      <span class="font-semibold" data-i18n="privacyStrong">All processing is local in your browser.</span>
-      <span data-i18n="privacyDesc">No text is uploaded to any server.</span>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -118,6 +113,12 @@ Limitations:
       </div>
     </div>
 
+    <div class="mt-8 mb-2 px-4 py-4 rounded-2xl border border-emerald-400/40 bg-emerald-500/10 text-emerald-100 text-sm leading-relaxed">
+      <p class="font-semibold" data-i18n="privacyBanner">
+        All processing happens locally in your browser · Your text is never uploaded to any server · 100% privacy protected · Completely free & unlimited
+      </p>
+    </div>
+
     <section class="mt-16">
       <h2 class="text-2xl font-bold text-center mb-6" data-i18n="faqTitle">Frequently Asked Questions</h2>
       <div id="faq-zh" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -134,16 +135,18 @@ Limitations:
   <script>
     const I18N = {
       zh: {
+        title: '免费在线文字转语音工具 | Free TTS Tool',
         brandSub: 'AI 语音合成器', heroTitle: '让文字 <span class="gradient-text">开口说话</span>', heroDesc: '支持长文本，纯前端本地处理。',
-        privacyStrong: '所有处理都在你的浏览器本地完成。', privacyDesc: '文本不会上传到任何服务器。',
+        privacyBanner: '所有处理完全在您的浏览器本地完成，您的文字永不上传任何服务器 · 100% 隐私保障 · 完全免费、无限使用',
         textPlaceholder: '在此输入你要朗读的文字...', loadingVoices: '正在加载语音库...', btnSpeak: '开始朗读', btnPause: '暂停', btnStop: '停止', btnDownload: '录制并下载音频', btnDownloadRecording: '停止录制并下载',
         labelChars: '字符数', labelWords: '词数', labelEta: '预计时长', historyTitle: '最近记录', voiceSettings: '语音设置', labelVoice: '选择声音', voiceSearchPlaceholder: '搜索语言代码或声音名称...', labelRate: '朗读语速', labelPitch: '音调高低', faqTitle: '常见问题',
-        statusIdle: '待机', statusReady: '引擎就绪', statusLoading: '加载语音库中...', statusSpeaking: '朗读中', statusPaused: '已暂停', statusStopped: '已停止', statusEnded: '朗读结束', statusError: '出现错误',
+        statusIdle: '待机', statusReady: '引擎就绪', statusLoading: '加载语音中...', statusSpeaking: '朗读中', statusPaused: '已暂停', statusStopped: '已停止', statusEnded: '朗读结束', statusError: '出现错误',
         progressPart: '第 {current}/{total} 段', toastEnterText: '请输入文字后再开始朗读', toastNoVoice: '语音尚未加载完成，请稍候', toastCopied: '已复制到剪贴板', toastCleared: '已清空输入内容', toastRecordingStart: '已开始录制，请在弹窗中勾选共享标签页音频', toastRecordingStop: '录制结束，正在生成文件', toastRecordingUnsupported: '当前浏览器不支持录制下载，请使用 Chrome/Edge', toastRecordingError: '录制失败，请确认已授权音频捕获', recommended: '推荐'
       },
       en: {
+        title: 'Free TTS Tool | Online Text to Speech',
         brandSub: 'AI Voice Synthesizer', heroTitle: 'Make Text <span class="gradient-text">Talk</span>', heroDesc: 'Long-text friendly, pure frontend local processing.',
-        privacyStrong: 'All processing is local in your browser.', privacyDesc: 'No text is uploaded to any server.',
+        privacyBanner: 'All processing happens locally in your browser · Your text is never uploaded to any server · 100% privacy protected · Completely free & unlimited',
         textPlaceholder: 'Type text to read aloud...', loadingVoices: 'Loading voices...', btnSpeak: 'Start Reading', btnPause: 'Pause', btnStop: 'Stop', btnDownload: 'Record & Download Audio', btnDownloadRecording: 'Stop Recording & Download',
         labelChars: 'Chars', labelWords: 'Words', labelEta: 'Estimated', historyTitle: 'Recent History', voiceSettings: 'Voice Settings', labelVoice: 'Select Voice', voiceSearchPlaceholder: 'Search language code or voice name...', labelRate: 'Speech Rate', labelPitch: 'Voice Pitch', faqTitle: 'Frequently Asked Questions',
         statusIdle: 'IDLE', statusReady: 'READY', statusLoading: 'LOADING VOICES...', statusSpeaking: 'READING', statusPaused: 'PAUSED', statusStopped: 'STOPPED', statusEnded: 'FINISHED', statusError: 'ERROR',
@@ -174,6 +177,8 @@ Limitations:
       voices: [],
       queue: [],
       idx: 0,
+      currentStatusKey: 'idle',
+      currentStatusExtra: '',
       synth: window.speechSynthesis,
       voicesReady: false,
       el: {
@@ -211,6 +216,7 @@ Limitations:
       t(k) { return I18N[this.lang][k] || k; },
       applyLang() {
         document.documentElement.lang = this.lang === 'zh' ? 'zh-CN' : 'en';
+        document.title = this.t('title');
         document.querySelectorAll('[data-i18n]').forEach(el => {
           const k = el.dataset.i18n;
           if (this.t(k)) el.textContent = this.t(k);
@@ -228,8 +234,11 @@ Limitations:
         this.el.faqZh.classList.toggle('hidden', this.lang !== 'zh');
         this.el.faqEn.classList.toggle('hidden', this.lang !== 'en');
         this.el.downloadLabel.textContent = Recorder.recording ? this.t('btnDownloadRecording') : this.t('btnDownload');
+        this.setStatus(this.currentStatusKey, this.currentStatusExtra);
       },
       setStatus(key, extra = '') {
+        this.currentStatusKey = key;
+        this.currentStatusExtra = extra;
         const map = { idle: 'statusIdle', ready: 'statusReady', loading: 'statusLoading', speaking: 'statusSpeaking', paused: 'statusPaused', stopped: 'statusStopped', ended: 'statusEnded', error: 'statusError' };
         const msg = this.t(map[key] || 'statusIdle');
         this.el.statusText.textContent = extra ? `${msg} · ${extra}` : msg;
