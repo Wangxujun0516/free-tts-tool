@@ -1,658 +1,469 @@
 <!DOCTYPE html>
-<!-- 
-  ================================================================================
-  Free Online Text-to-Speech (TTS) Tool | 免费在线文字转语音工具 (v2026.03)
-  ================================================================================
-  
-  Major Upgrade Highlights:
-  1. Long Text Splitting: Automatically splits text into sentences to bypass browser length limits.
-  2. Audio Recording (Experimental): Uses MediaRecorder + user interaction for capturing speech output.
-  3. UI/UX: Added voice search, text stats (char/word count), and estimated duration.
-  4. PWA: Service Worker and Manifest for offline use.
-  5. Accessibility: ARIA roles, labels, and live regions.
-  6. Performance: Improved voice loading and sequential playback queue.
-  7. Privacy: Explicit local-only processing guarantee.
-
-  Technical Notes:
-  - Download feature: Pure browser-side recording of Web Speech API is experimental and browser-dependent.
-  - Sentence splitting uses regex: /[.?!。？！]\s*/ to ensure natural pauses.
-  - Highlighting: Uses character indices from onboundary events to indicate progress.
-  ================================================================================
+<!--
+Bilingual upgrade + UX fixes:
+1) Real language switching with localStorage persistence (lang=zh/en).
+2) Full text consistency via centralized i18n map.
+3) Voice loading spinner and hidden controls until voices are available.
+4) Download recording using MediaRecorder + AudioContext + createMediaStreamDestination.
+5) Mobile spacing, privacy banner, and accessibility labels.
+Limitations:
+- Web Speech synthesis output capture depends on browser permission for tab/system audio sharing.
+- Export format is WebM (Opus when supported).
 -->
-<html lang="zh-CN" class="scroll-smooth">
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#4f46e5">
-    
-    <title>免费在线文字转语音工具 | AI 语音合成器 | Free TTS Tool Online 2026</title>
-    <meta name="title" content="免费在线文字转语音工具 | AI 语音合成器 | Free TTS Tool Online 2026">
-    <meta name="description" content="2026最新免费在线文字转语音工具。支持多语言，自动长文本分段，实时进度显示。100% 纯前端处理，隐私安全，一键下载音频。">
-    <meta name="keywords" content="文字转语音, TTS, 在线朗读, AI语音合成, 免费TTS, 语音下载, 文字转音频, 2026工具, PWA">
-
-    <!-- Favicon & Manifest -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
-    <link rel="manifest" href="manifest.json">
-
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        brand: { 50: '#f5f7ff', 100: '#ebf0fe', 200: '#ced9fd', 300: '#adbdfa', 400: '#708cf6', 500: '#4a6cf0', 600: '#2648e5', 700: '#1d36ac', 800: '#142572', 900: '#0d184a' }
-                    }
-                }
-            }
-        }
-    </script>
-    <style type="text/css">
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
-        .glass { background: rgba(24, 24, 27, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(63, 63, 70, 0.4); }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
-        .gradient-text { background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .highlight { background: rgba(79, 70, 229, 0.3); border-radius: 4px; transition: all 0.2s; }
-        
-        /* Progress Bar Animation */
-        #reading-progress { transition: width 0.3s ease; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#4f46e5" />
+  <title>免费在线文字转语音工具 | Free TTS Tool</title>
+  <meta name="description" content="Free online text to speech tool. Local processing, bilingual UI, long text support." />
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .glass { background: rgba(24,24,27,.85); backdrop-filter: blur(10px); border: 1px solid rgba(63,63,70,.45); }
+    .gradient-text { background: linear-gradient(135deg,#818cf8 0%,#c084fc 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+    .lang-active { background: rgba(99,102,241,.2); border-color: rgba(129,140,248,.8); color: #e0e7ff; }
+  </style>
 </head>
 <body class="bg-[#09090b] text-zinc-200 min-h-screen selection:bg-indigo-500/30">
-    
-    <!-- Header -->
-    <nav class="sticky top-0 z-50 glass border-b border-zinc-800/50 px-4 py-3">
-        <div class="max-w-5xl mx-auto flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                    <span class="text-xl">🎙️</span>
-                </div>
-                <div>
-                    <h1 class="text-lg font-bold leading-tight">Free TTS <span class="text-indigo-400">Tool</span></h1>
-                    <p class="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">AI Voice Synthesizer</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-4">
-                <button onclick="UI.toggleLang()" class="text-xs font-medium px-3 py-1.5 rounded-full border border-zinc-700 hover:bg-zinc-800 transition-colors">
-                    中 / EN
-                </button>
-                <a href="#faq" class="hidden sm:block text-xs text-zinc-400 hover:text-white">常见问题</a>
-            </div>
+  <nav class="sticky top-0 z-50 glass border-b border-zinc-800/50 px-4 py-3">
+    <div class="max-w-5xl mx-auto flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">🎙️</div>
+        <div>
+          <h1 class="text-lg font-bold">Free TTS <span class="text-indigo-400">Tool</span></h1>
+          <p class="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold" data-i18n="brandSub">AI Voice Synthesizer</p>
         </div>
-    </nav>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="lang-zh" class="text-xs px-3 py-1.5 rounded-full border border-zinc-700" aria-label="切换到中文">中文</button>
+        <button id="lang-en" class="text-xs px-3 py-1.5 rounded-full border border-zinc-700" aria-label="Switch to English">English</button>
+      </div>
+    </div>
+  </nav>
 
-    <main class="max-w-4xl mx-auto px-4 py-8 sm:py-12">
-        <!-- Hero -->
-        <div class="text-center mb-10">
-            <h2 class="text-3xl sm:text-5xl font-extrabold mb-4 tracking-tight">
-                让文字 <span class="gradient-text">开口说话</span>
-            </h2>
-            <p class="text-zinc-400 text-sm sm:text-base max-w-xl mx-auto">
-                2026 纯前端 AI 语音合成引擎，支持长文本分段播放，实时调节，隐私无忧。
-            </p>
-        </div>
+  <main class="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+    <div class="text-center mb-10">
+      <h2 class="text-3xl sm:text-5xl font-extrabold mb-4" data-i18n-html="heroTitle">让文字 <span class="gradient-text">开口说话</span></h2>
+      <p class="text-zinc-400 text-sm sm:text-base max-w-xl mx-auto" data-i18n="heroDesc">支持长文本，纯前端本地处理。</p>
+    </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <!-- Left Column -->
-            <div class="lg:col-span-8 space-y-6">
-                <div class="relative group">
-                    <div class="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
-                    <div class="relative bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
-                        <div class="flex items-center justify-between px-6 py-3 border-b border-zinc-800/50 bg-zinc-900/50">
-                            <span class="text-xs font-semibold text-zinc-500 flex items-center gap-2" aria-live="polite">
-                                <span id="ready-dot" class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                <span id="ready-text">就绪</span>
-                            </span>
-                            <div class="flex gap-2">
-                                <button onclick="UI.copyText()" class="p-2 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-400 hover:text-white" title="复制文本" aria-label="复制当前文本">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                                </button>
-                                <button onclick="UI.clearText()" class="p-2 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-400 hover:text-red-400" title="清空文本" aria-label="清空输入框">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="relative">
-                            <textarea id="text" 
-                                class="w-full h-64 sm:h-80 bg-transparent p-6 text-lg text-zinc-100 focus:outline-none placeholder:text-zinc-700 resize-none custom-scrollbar" 
-                                placeholder="在此输入你要朗读的文字..."
-                                aria-label="输入需要合成的文字"></textarea>
-                            
-                            <!-- Progress Bar Overlay -->
-                            <div class="absolute bottom-0 left-0 w-full h-1 bg-zinc-800">
-                                <div id="reading-progress" class="h-full bg-indigo-500 w-0"></div>
-                            </div>
-                        </div>
-                        
-                        <!-- Control Panel -->
-                        <div class="px-6 py-4 bg-zinc-900/80 border-t border-zinc-800/50 flex flex-wrap gap-3 items-center justify-center">
-                            <button id="btn-speak" onclick="Engine.speak()" class="flex-1 min-w-[140px] bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold py-3.5 px-8 rounded-2xl shadow-lg shadow-indigo-500/20 transform hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
-                                <span id="icon-play">▶️</span> <span id="text-play">开始朗读</span>
-                            </button>
-                            <button id="btn-pause" onclick="Engine.pause()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-3.5 px-6 rounded-2xl transition-all disabled:opacity-50">暂停</button>
-                            <button id="btn-stop" onclick="Engine.stop()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-3.5 px-6 rounded-2xl transition-all">停止</button>
-                            
-                            <div class="relative group/download">
-                                <button id="btn-download" onclick="Recorder.toggleRecord()" class="p-3.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-indigo-400 rounded-2xl transition-all" title="录制并下载">
-                                    <svg id="icon-record" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                </button>
-                                <div id="recording-dot" class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full hidden animate-pulse border-2 border-zinc-900"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <div class="mb-6 px-4 py-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 text-sm">
+      <span class="font-semibold" data-i18n="privacyStrong">All processing is local in your browser.</span>
+      <span data-i18n="privacyDesc">No text is uploaded to any server.</span>
+    </div>
 
-                <!-- Stats Bar -->
-                <div class="flex flex-wrap gap-4 px-4">
-                    <div class="text-[11px] text-zinc-500 font-medium">
-                        字符数: <span id="char-count" class="text-zinc-300">0</span>
-                    </div>
-                    <div class="text-[11px] text-zinc-500 font-medium">
-                        预计时长: <span id="eta-time" class="text-zinc-300">0s</span>
-                    </div>
-                    <div id="status-badge" class="ml-auto flex items-center gap-2 px-3 py-1 bg-indigo-500/10 rounded-full border border-indigo-500/20 hidden">
-                        <span id="status-spinner" class="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
-                        <span id="status-text" class="text-[10px] font-bold text-indigo-400 uppercase tracking-tighter">正在准备引擎...</span>
-                    </div>
-                </div>
-
-                <!-- History -->
-                <div id="history-container" class="hidden space-y-3">
-                    <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-widest px-1">最近记录</h3>
-                    <div id="history-list" class="flex flex-wrap gap-2"></div>
-                </div>
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div class="lg:col-span-8 space-y-6">
+        <div class="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-3 border-b border-zinc-800/50">
+            <span class="text-xs text-zinc-400" id="ready-text">READY</span>
+            <div class="flex gap-2">
+              <button id="btn-copy" class="p-2 hover:bg-zinc-800 rounded-lg" aria-label="Copy" aria-controls="text">📋</button>
+              <button id="btn-clear" class="p-2 hover:bg-zinc-800 rounded-lg" aria-label="Clear" aria-controls="text">🧹</button>
             </div>
+          </div>
 
-            <!-- Right Column -->
-            <div class="lg:col-span-4 space-y-6">
-                <!-- Settings Card -->
-                <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
-                    <h3 class="font-bold text-lg flex items-center gap-2">
-                        <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
-                        语音设置
-                    </h3>
+          <textarea id="text" class="w-full h-64 sm:h-80 bg-transparent p-6 text-lg text-zinc-100 focus:outline-none placeholder:text-zinc-700 resize-none" data-i18n-placeholder="textPlaceholder" aria-label="Text input"></textarea>
 
-                    <div class="space-y-4">
-                        <!-- Voice Select & Search -->
-                        <div>
-                            <label class="block text-xs font-bold text-zinc-500 uppercase mb-2">选择声音</label>
-                            <div class="space-y-2">
-                                <input type="text" id="voice-search" placeholder="搜索语言或名称..." class="w-full bg-zinc-950/50 border border-zinc-800 rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500/50 focus:outline-none transition-all" oninput="Engine.loadVoices()">
-                                <select id="voice" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3.5 text-sm focus:ring-2 focus:ring-indigo-500/50 focus:outline-none transition-all"></select>
-                            </div>
-                        </div>
+          <div class="w-full h-1 bg-zinc-800"><div id="reading-progress" class="h-full bg-indigo-500 w-0 transition-all"></div></div>
 
-                        <!-- Sliders -->
-                        <div>
-                            <div class="flex justify-between mb-2">
-                                <label class="text-xs font-bold text-zinc-500 uppercase">朗读语速</label>
-                                <span id="rateVal" class="text-xs font-mono text-indigo-400">1.0x</span>
-                            </div>
-                            <input type="range" id="rate" min="0.5" max="2" step="0.1" value="1" class="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" role="slider" aria-label="语速调节">
-                        </div>
+          <div id="loading-voices" class="px-6 py-6 border-t border-zinc-800/50 flex items-center justify-center gap-3">
+            <span class="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></span>
+            <span data-i18n="loadingVoices">Loading voices...</span>
+          </div>
 
-                        <div>
-                            <div class="flex justify-between mb-2">
-                                <label class="text-xs font-bold text-zinc-500 uppercase">音调高低</label>
-                                <span id="pitchVal" class="text-xs font-mono text-indigo-400">1.0</span>
-                            </div>
-                            <input type="range" id="pitch" min="0.5" max="2" step="0.1" value="1" class="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" role="slider" aria-label="音调调节">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Ad Placeholder -->
-                <div class="bg-zinc-900/50 border-2 border-dashed border-zinc-800 rounded-3xl p-8 text-center">
-                    <p class="text-zinc-600 text-xs font-medium mb-2">ADVERTISEMENT</p>
-                    <div class="aspect-[300/250] bg-zinc-950/50 rounded-xl flex items-center justify-center">
-                        <span class="text-zinc-800 text-sm">AdSense / Monetag Placeholder</span>
-                    </div>
-                </div>
-            </div>
+          <div id="controls" class="hidden px-4 sm:px-6 py-4 border-t border-zinc-800/50 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <button id="btn-speak" class="sm:col-span-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 px-5 rounded-2xl" aria-label="Start" aria-controls="text"><span data-i18n="btnSpeak">Start Reading</span></button>
+            <button id="btn-pause" class="bg-zinc-800 hover:bg-zinc-700 py-3.5 px-5 rounded-2xl" data-i18n="btnPause" aria-label="Pause" aria-controls="text">Pause</button>
+            <button id="btn-stop" class="bg-zinc-800 hover:bg-zinc-700 py-3.5 px-5 rounded-2xl" data-i18n="btnStop" aria-label="Stop" aria-controls="text">Stop</button>
+            <button id="btn-download" class="sm:col-span-2 lg:col-span-4 bg-zinc-800 hover:bg-zinc-700 py-3.5 px-5 rounded-2xl disabled:opacity-50" aria-label="Download"><span id="download-label" data-i18n="btnDownload">Download Audio</span> <span id="recording-dot" class="hidden w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block"></span></button>
+          </div>
         </div>
 
-        <!-- FAQ Section -->
-        <section id="faq" class="mt-20 space-y-8">
-            <h2 class="text-2xl font-bold text-center">常见问题</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="p-6 bg-zinc-900/30 rounded-2xl border border-zinc-800">
-                    <h4 class="font-bold mb-2">支持超长文本吗？</h4>
-                    <p class="text-sm text-zinc-500">支持！我们采用了智能分段技术，即使是上万字的文本也会被自动拆分为小段顺序朗读，避免了系统限制导致的卡顿。</p>
-                </div>
-                <div class="p-6 bg-zinc-900/30 rounded-2xl border border-zinc-800">
-                    <h4 class="font-bold mb-2">如何录制下载音频？</h4>
-                    <p class="text-sm text-zinc-500">点击下载图标开启录制模式，然后开始朗读。结束后将自动生成音频文件供下载。提示：请确保浏览器允许音频权限。</p>
-                </div>
-                <div class="p-6 bg-zinc-900/30 rounded-2xl border border-zinc-800">
-                    <h4 class="font-bold mb-2">我的隐私安全吗？</h4>
-                    <p class="text-sm text-zinc-500">100% 隐私安全。本工具采用纯前端技术，所有文字处理和语音合成都在您的浏览器本地完成，绝不会上传到任何服务器。</p>
-                </div>
-                <div class="p-6 bg-zinc-900/30 rounded-2xl border border-zinc-800">
-                    <h4 class="font-bold mb-2">为什么推荐声音带有标记？</h4>
-                    <p class="text-sm text-zinc-500">标记为“推荐”的声音通常是由系统（如 Microsoft）提供的高质量自然人声，听感更加真实流畅。</p>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <footer class="mt-20 border-t border-zinc-800 py-12 px-4">
-        <div class="max-w-4xl mx-auto text-center space-y-4">
-            <div class="mb-6 px-6 py-3 bg-zinc-900/50 rounded-2xl border border-zinc-800/50 inline-block">
-                <p class="text-zinc-500 text-xs">
-                    🔒 <strong>隐私保护：</strong> 所有处理均在本地浏览器完成，您的文字从未离开过您的设备。
-                </p>
-            </div>
-            <div class="flex justify-center gap-6 mb-6">
-                <a href="#" class="text-zinc-500 hover:text-white transition-colors">隐私政策</a>
-                <a href="#" class="text-zinc-500 hover:text-white transition-colors">用户协议</a>
-                <a href="https://github.com" class="text-zinc-500 hover:text-white transition-colors">GitHub</a>
-            </div>
-            <p class="text-zinc-600 text-xs">
-                © 2026 Free TTS Tool. 纯前端驱动 · 支持离线 PWA · SEO 优化版
-            </p>
-            <div class="flex justify-center gap-2">
-                <span class="px-2 py-0.5 bg-zinc-800 text-[10px] text-zinc-400 rounded">Chrome OK</span>
-                <span class="px-2 py-0.5 bg-zinc-800 text-[10px] text-zinc-400 rounded">Edge OK</span>
-                <span class="px-2 py-0.5 bg-zinc-800 text-[10px] text-zinc-400 rounded">PWA Ready</span>
-            </div>
+        <div class="flex flex-wrap gap-4 px-1 text-[11px] text-zinc-500">
+          <div><span data-i18n="labelChars">Chars</span>: <span id="char-count" class="text-zinc-300">0</span></div>
+          <div><span data-i18n="labelWords">Words</span>: <span id="word-count" class="text-zinc-300">0</span></div>
+          <div><span data-i18n="labelEta">Estimated</span>: <span id="eta" class="text-zinc-300">0s</span></div>
+          <div class="ml-auto flex items-center gap-2 px-3 py-1 bg-indigo-500/10 rounded-full border border-indigo-500/20" aria-live="polite">
+            <span id="status-spinner" class="hidden w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
+            <span id="status-text" class="text-[10px] font-bold text-indigo-400 uppercase tracking-tighter">IDLE</span>
+          </div>
         </div>
-    </footer>
 
-    <!-- Scripts Modularized -->
-    <script>
-        /**
-         * 1. Storage Manager (localStorage logic)
-         */
-        const Storage = {
-            KEY: 'tts_history_v2',
-            getHistory() {
-                return JSON.parse(localStorage.getItem(this.KEY) || '[]');
-            },
-            saveHistory(text) {
-                let history = this.getHistory();
-                if (!text || history.includes(text)) return;
-                history.unshift(text);
-                if (history.length > 5) history.pop();
-                localStorage.setItem(this.KEY, JSON.stringify(history));
-                UI.renderHistory();
-            }
+        <div id="history-wrap" class="hidden">
+          <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-widest px-1" data-i18n="historyTitle">Recent History</h3>
+          <div id="history" class="mt-2 flex flex-wrap gap-2"></div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-4 space-y-6">
+        <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-4">
+          <h3 class="font-bold text-lg" data-i18n="voiceSettings">Voice Settings</h3>
+          <label class="text-xs font-bold text-zinc-500 uppercase" data-i18n="labelVoice">Select Voice</label>
+          <input id="voice-search" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs" data-i18n-placeholder="voiceSearchPlaceholder" aria-label="Search voice" />
+          <select id="voice" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3.5 text-sm" aria-label="Voice list"></select>
+
+          <div>
+            <div class="flex justify-between mb-2"><label for="rate" class="text-xs font-bold text-zinc-500 uppercase" data-i18n="labelRate">Speech Rate</label><span id="rateVal" class="text-xs text-indigo-400">1.0x</span></div>
+            <input id="rate" type="range" min="0.5" max="2" step="0.1" value="1" class="w-full accent-indigo-500" role="slider" aria-label="Rate slider" />
+          </div>
+
+          <div>
+            <div class="flex justify-between mb-2"><label for="pitch" class="text-xs font-bold text-zinc-500 uppercase" data-i18n="labelPitch">Voice Pitch</label><span id="pitchVal" class="text-xs text-indigo-400">1.0</span></div>
+            <input id="pitch" type="range" min="0.5" max="2" step="0.1" value="1" class="w-full accent-indigo-500" role="slider" aria-label="Pitch slider" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="mt-16">
+      <h2 class="text-2xl font-bold text-center mb-6" data-i18n="faqTitle">Frequently Asked Questions</h2>
+      <div id="faq-zh" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="p-6 bg-zinc-900/30 rounded-2xl border border-zinc-800"><h4 class="font-bold mb-2">为什么没有声音？</h4><p class="text-sm text-zinc-500">请检查系统与浏览器声音设置，建议使用 Chrome/Edge。</p></div>
+        <div class="p-6 bg-zinc-900/30 rounded-2xl border border-zinc-800"><h4 class="font-bold mb-2">支持下载吗？</h4><p class="text-sm text-zinc-500">支持 WebM 下载，需授权共享标签页音频。</p></div>
+      </div>
+      <div id="faq-en" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="p-6 bg-zinc-900/30 rounded-2xl border border-zinc-800"><h4 class="font-bold mb-2">Why no sound?</h4><p class="text-sm text-zinc-500">Please check browser/system audio settings. Chrome/Edge is recommended.</p></div>
+        <div class="p-6 bg-zinc-900/30 rounded-2xl border border-zinc-800"><h4 class="font-bold mb-2">Can I download audio?</h4><p class="text-sm text-zinc-500">Yes, WebM download is supported. You must allow tab audio sharing.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const I18N = {
+      zh: {
+        brandSub: 'AI 语音合成器', heroTitle: '让文字 <span class="gradient-text">开口说话</span>', heroDesc: '支持长文本，纯前端本地处理。',
+        privacyStrong: '所有处理都在你的浏览器本地完成。', privacyDesc: '文本不会上传到任何服务器。',
+        textPlaceholder: '在此输入你要朗读的文字...', loadingVoices: '正在加载语音库...', btnSpeak: '开始朗读', btnPause: '暂停', btnStop: '停止', btnDownload: '录制并下载音频', btnDownloadRecording: '停止录制并下载',
+        labelChars: '字符数', labelWords: '词数', labelEta: '预计时长', historyTitle: '最近记录', voiceSettings: '语音设置', labelVoice: '选择声音', voiceSearchPlaceholder: '搜索语言代码或声音名称...', labelRate: '朗读语速', labelPitch: '音调高低', faqTitle: '常见问题',
+        statusIdle: '待机', statusReady: '引擎就绪', statusLoading: '加载语音库中...', statusSpeaking: '朗读中', statusPaused: '已暂停', statusStopped: '已停止', statusEnded: '朗读结束', statusError: '出现错误',
+        progressPart: '第 {current}/{total} 段', toastEnterText: '请输入文字后再开始朗读', toastNoVoice: '语音尚未加载完成，请稍候', toastCopied: '已复制到剪贴板', toastCleared: '已清空输入内容', toastRecordingStart: '已开始录制，请在弹窗中勾选共享标签页音频', toastRecordingStop: '录制结束，正在生成文件', toastRecordingUnsupported: '当前浏览器不支持录制下载，请使用 Chrome/Edge', toastRecordingError: '录制失败，请确认已授权音频捕获', recommended: '推荐'
+      },
+      en: {
+        brandSub: 'AI Voice Synthesizer', heroTitle: 'Make Text <span class="gradient-text">Talk</span>', heroDesc: 'Long-text friendly, pure frontend local processing.',
+        privacyStrong: 'All processing is local in your browser.', privacyDesc: 'No text is uploaded to any server.',
+        textPlaceholder: 'Type text to read aloud...', loadingVoices: 'Loading voices...', btnSpeak: 'Start Reading', btnPause: 'Pause', btnStop: 'Stop', btnDownload: 'Record & Download Audio', btnDownloadRecording: 'Stop Recording & Download',
+        labelChars: 'Chars', labelWords: 'Words', labelEta: 'Estimated', historyTitle: 'Recent History', voiceSettings: 'Voice Settings', labelVoice: 'Select Voice', voiceSearchPlaceholder: 'Search language code or voice name...', labelRate: 'Speech Rate', labelPitch: 'Voice Pitch', faqTitle: 'Frequently Asked Questions',
+        statusIdle: 'IDLE', statusReady: 'READY', statusLoading: 'LOADING VOICES...', statusSpeaking: 'READING', statusPaused: 'PAUSED', statusStopped: 'STOPPED', statusEnded: 'FINISHED', statusError: 'ERROR',
+        progressPart: 'Part {current}/{total}', toastEnterText: 'Please enter text before reading', toastNoVoice: 'Voices are still loading', toastCopied: 'Copied to clipboard', toastCleared: 'Input cleared', toastRecordingStart: 'Recording started. In the prompt, share tab audio.', toastRecordingStop: 'Recording stopped. Preparing file', toastRecordingUnsupported: 'Recording is unsupported. Use Chrome/Edge.', toastRecordingError: 'Recording failed. Please allow audio capture.', recommended: 'Recommended'
+      }
+    };
+
+    const Store = {
+      historyKey: 'tts_history_v4',
+      langKey: 'lang',
+      getLang() {
+        const l = localStorage.getItem(this.langKey);
+        if (l === 'zh' || l === 'en') return l;
+        return navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+      },
+      setLang(l) { localStorage.setItem(this.langKey, l); },
+      getHistory() { return JSON.parse(localStorage.getItem(this.historyKey) || '[]'); },
+      saveHistory(t) {
+        if (!t.trim()) return;
+        const arr = this.getHistory().filter(x => x !== t.trim());
+        arr.unshift(t.trim());
+        localStorage.setItem(this.historyKey, JSON.stringify(arr.slice(0, 6)));
+      }
+    };
+
+    const App = {
+      lang: Store.getLang(),
+      voices: [],
+      queue: [],
+      idx: 0,
+      synth: window.speechSynthesis,
+      voicesReady: false,
+      el: {
+        langZh: document.getElementById('lang-zh'),
+        langEn: document.getElementById('lang-en'),
+        text: document.getElementById('text'),
+        btnSpeak: document.getElementById('btn-speak'),
+        btnPause: document.getElementById('btn-pause'),
+        btnStop: document.getElementById('btn-stop'),
+        btnDownload: document.getElementById('btn-download'),
+        btnCopy: document.getElementById('btn-copy'),
+        btnClear: document.getElementById('btn-clear'),
+        controls: document.getElementById('controls'),
+        loadingVoices: document.getElementById('loading-voices'),
+        voiceSearch: document.getElementById('voice-search'),
+        voice: document.getElementById('voice'),
+        rate: document.getElementById('rate'),
+        pitch: document.getElementById('pitch'),
+        rateVal: document.getElementById('rateVal'),
+        pitchVal: document.getElementById('pitchVal'),
+        charCount: document.getElementById('char-count'),
+        wordCount: document.getElementById('word-count'),
+        eta: document.getElementById('eta'),
+        statusText: document.getElementById('status-text'),
+        statusSpinner: document.getElementById('status-spinner'),
+        progress: document.getElementById('reading-progress'),
+        historyWrap: document.getElementById('history-wrap'),
+        history: document.getElementById('history'),
+        faqZh: document.getElementById('faq-zh'),
+        faqEn: document.getElementById('faq-en'),
+        readyText: document.getElementById('ready-text'),
+        downloadLabel: document.getElementById('download-label'),
+        recordingDot: document.getElementById('recording-dot')
+      },
+      t(k) { return I18N[this.lang][k] || k; },
+      applyLang() {
+        document.documentElement.lang = this.lang === 'zh' ? 'zh-CN' : 'en';
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+          const k = el.dataset.i18n;
+          if (this.t(k)) el.textContent = this.t(k);
+        });
+        document.querySelectorAll('[data-i18n-html]').forEach(el => {
+          const k = el.dataset.i18nHtml;
+          if (this.t(k)) el.innerHTML = this.t(k);
+        });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+          const k = el.dataset.i18nPlaceholder;
+          if (this.t(k)) el.placeholder = this.t(k);
+        });
+        this.el.langZh.classList.toggle('lang-active', this.lang === 'zh');
+        this.el.langEn.classList.toggle('lang-active', this.lang === 'en');
+        this.el.faqZh.classList.toggle('hidden', this.lang !== 'zh');
+        this.el.faqEn.classList.toggle('hidden', this.lang !== 'en');
+        this.el.downloadLabel.textContent = Recorder.recording ? this.t('btnDownloadRecording') : this.t('btnDownload');
+      },
+      setStatus(key, extra = '') {
+        const map = { idle: 'statusIdle', ready: 'statusReady', loading: 'statusLoading', speaking: 'statusSpeaking', paused: 'statusPaused', stopped: 'statusStopped', ended: 'statusEnded', error: 'statusError' };
+        const msg = this.t(map[key] || 'statusIdle');
+        this.el.statusText.textContent = extra ? `${msg} · ${extra}` : msg;
+        this.el.readyText.textContent = msg;
+        this.el.statusSpinner.classList.toggle('hidden', !(key === 'loading' || key === 'speaking'));
+      },
+      showToast(txt) { this.el.statusText.textContent = txt; },
+      setVoicesLoading(flag) {
+        this.voicesReady = !flag;
+        this.el.loadingVoices.classList.toggle('hidden', !flag);
+        this.el.controls.classList.toggle('hidden', flag);
+        this.setStatus(flag ? 'loading' : 'ready');
+      },
+      updateStats() {
+        const t = this.el.text.value;
+        const chars = t.length;
+        const words = t.trim() ? t.trim().split(/\s+/).length : 0;
+        const rate = parseFloat(this.el.rate.value);
+        const sec = Math.max(0, Math.round(chars / (15 * rate)));
+        this.el.charCount.textContent = chars;
+        this.el.wordCount.textContent = words;
+        this.el.eta.textContent = `${sec}s`;
+      },
+      updateProgress(v) { this.el.progress.style.width = `${Math.max(0, Math.min(100, v))}%`; },
+      renderHistory() {
+        const arr = Store.getHistory();
+        this.el.history.innerHTML = '';
+        this.el.historyWrap.classList.toggle('hidden', arr.length === 0);
+        arr.forEach(item => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1 rounded-full truncate max-w-[180px]';
+          b.textContent = item;
+          b.onclick = () => {
+            this.el.text.value = item;
+            this.updateStats();
+          };
+          this.el.history.appendChild(b);
+        });
+      },
+      splitText(txt) { return (txt.match(/[^。！？.!?\n]+[。！？.!?]?/g) || []).map(s => s.trim()).filter(Boolean); },
+      loadVoices() {
+        const raw = this.synth.getVoices();
+        if (!raw.length) {
+          this.setVoicesLoading(true);
+          return;
+        }
+        const q = this.el.voiceSearch.value.trim().toLowerCase();
+        const sorted = [...raw].sort((a, b) => {
+          const sa = a.lang.includes('zh') ? -2 : a.lang.includes('en') ? -1 : 0;
+          const sb = b.lang.includes('zh') ? -2 : b.lang.includes('en') ? -1 : 0;
+          return sa - sb || a.name.localeCompare(b.name);
+        });
+        this.voices = sorted.filter(v => !q || v.name.toLowerCase().includes(q) || v.lang.toLowerCase().includes(q));
+        this.el.voice.innerHTML = '';
+        this.voices.forEach((v, i) => {
+          const rec = /microsoft|natural/i.test(v.name);
+          const o = document.createElement('option');
+          o.value = i;
+          o.textContent = `${v.name} (${v.lang})${rec ? ` · ${this.t('recommended')}` : ''}`;
+          this.el.voice.appendChild(o);
+        });
+        this.setVoicesLoading(false);
+      },
+      speak() {
+        if (!this.voicesReady) {
+          this.showToast(this.t('toastNoVoice'));
+          return;
+        }
+        const txt = this.el.text.value.trim();
+        if (!txt) {
+          this.showToast(this.t('toastEnterText'));
+          return;
+        }
+        if (this.synth.speaking && this.synth.paused) {
+          this.synth.resume();
+          this.setStatus('speaking');
+          return;
+        }
+        this.stop(false);
+        Store.saveHistory(txt);
+        this.renderHistory();
+        this.queue = this.splitText(txt);
+        this.idx = 0;
+        this.playNext();
+      },
+      playNext() {
+        if (this.idx >= this.queue.length) {
+          this.setStatus('ended');
+          this.updateProgress(100);
+          return;
+        }
+        const seg = this.queue[this.idx];
+        const u = new SpeechSynthesisUtterance(seg);
+        const v = this.voices[Number(this.el.voice.value)] || null;
+        if (v) u.voice = v;
+        u.rate = parseFloat(this.el.rate.value);
+        u.pitch = parseFloat(this.el.pitch.value);
+        u.onstart = () => {
+          const extra = this.t('progressPart').replace('{current}', this.idx + 1).replace('{total}', this.queue.length);
+          this.setStatus('speaking', extra);
+          this.updateProgress((this.idx / this.queue.length) * 100);
         };
-
-        /**
-         * 2. Speech Engine (Queue, Splitting, Voice loading)
-         */
-        const Engine = {
-            synth: window.speechSynthesis,
-            voices: [],
-            queue: [],
-            currentIndex: 0,
-            isPaused: false,
-
-            init() {
-                if (this.synth.onvoiceschanged !== undefined) {
-                    this.synth.onvoiceschanged = () => this.loadVoices();
-                }
-                this.loadVoices();
-                this.bindStats();
-            },
-
-            loadVoices() {
-                const rawVoices = this.synth.getVoices();
-                if (rawVoices.length === 0) {
-                    UI.updateStatus('loading');
-                    return;
-                }
-
-                const search = document.getElementById('voice-search').value.toLowerCase();
-                
-                this.voices = rawVoices
-                    .filter(v => v.name.toLowerCase().includes(search) || v.lang.toLowerCase().includes(search))
-                    .sort((a, b) => {
-                        const aPref = a.lang.includes('zh') || a.lang.includes('cn') ? -2 : (a.lang.includes('en') ? -1 : 0);
-                        const bPref = b.lang.includes('zh') || b.lang.includes('cn') ? -2 : (b.lang.includes('en') ? -1 : 0);
-                        return aPref - bPref || a.name.localeCompare(b.name);
-                    });
-
-                const voiceSelect = document.getElementById('voice');
-                const currentVal = voiceSelect.value;
-                voiceSelect.innerHTML = '';
-                
-                this.voices.forEach((voice, i) => {
-                    const isRecommended = voice.name.includes('Natural') || voice.name.includes('Online') || voice.name.includes('Microsoft');
-                    const option = document.createElement('option');
-                    option.value = i;
-                    option.textContent = `${isRecommended ? '⭐ ' : ''}${voice.name} (${voice.lang})`;
-                    if (isRecommended) option.classList.add('font-bold');
-                    voiceSelect.appendChild(option);
-                });
-                
-                UI.updateStatus('ready');
-            },
-
-            splitText(text) {
-                // Split by sentence markers, but keep the markers in the output
-                // Use a non-capturing group for the split logic but capture the delimiters
-                const segments = text.split(/([。？！.?!]\s+)/);
-                const result = [];
-                for (let i = 0; i < segments.length; i += 2) {
-                    const content = segments[i] || "";
-                    const delim = segments[i + 1] || "";
-                    if (content.trim() || delim.trim()) {
-                        result.push(content + delim);
-                    }
-                }
-                return result;
-            },
-
-            speak() {
-                const fullText = document.getElementById('text').value.trim();
-                if (!fullText) {
-                    UI.showToast(UI.isLangEn ? 'Please enter text' : '请输入文字', 'error');
-                    return;
-                }
-
-                if (this.synth.paused && this.synth.speaking) {
-                    this.synth.resume();
-                    UI.updateStatus('speaking');
-                    return;
-                }
-
-                this.stop();
-                this.queue = this.splitText(fullText);
-                this.currentIndex = 0;
-                this.isPaused = false;
-                
-                Storage.saveHistory(fullText);
-                this.playNext();
-            },
-
-            playNext() {
-                if (this.currentIndex >= this.queue.length) {
-                    UI.updateStatus('ended');
-                    if (Recorder.isRecording) Recorder.stopRecord();
-                    return;
-                }
-
-                const segment = this.queue[this.currentIndex];
-                const utterance = new SpeechSynthesisUtterance(segment);
-                
-                const selectedVoice = this.voices[document.getElementById('voice').value];
-                if (selectedVoice) utterance.voice = selectedVoice;
-                
-                utterance.rate = parseFloat(document.getElementById('rate').value);
-                utterance.pitch = parseFloat(document.getElementById('pitch').value);
-
-                utterance.onstart = () => {
-                    UI.updateStatus('speaking', `第 ${this.currentIndex + 1}/${this.queue.length} 段`);
-                    UI.updateProgress((this.currentIndex / this.queue.length) * 100);
-                };
-
-                utterance.onboundary = (event) => {
-                    // Real-time highlighting in textarea
-                    const textEl = document.getElementById('text');
-                    const start = event.charIndex;
-                    const end = start + event.charLength;
-                    
-                    // Only highlight if the user isn't actively typing/selecting
-                    if (document.activeElement !== textEl) {
-                        // Offset by previous segments
-                        let offset = 0;
-                        for (let i = 0; i < this.currentIndex; i++) {
-                            offset += this.queue[i].length + 1; // +1 for the separator
-                        }
-                        textEl.setSelectionRange(offset + start, offset + end);
-                    }
-                };
-
-                utterance.onend = () => {
-                    if (!this.isPaused) {
-                        this.currentIndex++;
-                        this.playNext();
-                    }
-                };
-
-                utterance.onerror = (e) => {
-                    console.error('Speech Error:', e);
-                    UI.updateStatus('error');
-                };
-
-                this.synth.speak(utterance);
-            },
-
-            pause() {
-                if (this.synth.speaking && !this.synth.paused) {
-                    this.synth.pause();
-                    this.isPaused = true;
-                    UI.updateStatus('paused');
-                }
-            },
-
-            stop() {
-                this.synth.cancel();
-                this.queue = [];
-                this.currentIndex = 0;
-                this.isPaused = false;
-                UI.updateStatus('stopped');
-                UI.updateProgress(0);
-                if (Recorder.isRecording) Recorder.stopRecord();
-            },
-
-            bindStats() {
-                const textEl = document.getElementById('text');
-                const update = () => {
-                    const text = textEl.value;
-                    document.getElementById('char-count').textContent = text.length;
-                    
-                    // Estimate duration: ~15 characters per second at 1x speed
-                    const rate = parseFloat(document.getElementById('rate').value);
-                    const seconds = Math.round(text.length / (15 * rate));
-                    document.getElementById('eta-time').textContent = seconds + 's';
-                };
-                textEl.addEventListener('input', update);
-                document.getElementById('rate').addEventListener('input', update);
-                update();
-            }
+        u.onboundary = (e) => {
+          if (document.activeElement === this.el.text) return;
+          let offset = 0;
+          for (let i = 0; i < this.idx; i++) offset += this.queue[i].length;
+          const s = offset + (e.charIndex || 0);
+          const en = s + Math.max(1, e.charLength || 1);
+          try { this.el.text.setSelectionRange(s, en); } catch {}
         };
+        u.onend = () => { this.idx += 1; this.playNext(); };
+        u.onerror = () => this.setStatus('error');
+        this.synth.speak(u);
+      },
+      pause() {
+        if (this.synth.speaking && !this.synth.paused) {
+          this.synth.pause();
+          this.setStatus('paused');
+        }
+      },
+      stop(show = true) {
+        this.synth.cancel();
+        this.queue = [];
+        this.idx = 0;
+        this.updateProgress(0);
+        if (show) this.setStatus('stopped');
+      }
+    };
 
-        /**
-         * 3. Recorder Manager (Experimental recording logic)
-         */
-        const Recorder = {
-            mediaRecorder: null,
-            chunks: [],
-            isRecording: false,
+    const Recorder = {
+      recording: false,
+      recorder: null,
+      stream: null,
+      ctx: null,
+      dest: null,
+      chunks: [],
+      supported() { return !!(navigator.mediaDevices?.getDisplayMedia && window.MediaRecorder && window.AudioContext); },
+      async toggle() {
+        if (!this.supported()) {
+          App.showToast(App.t('toastRecordingUnsupported'));
+          return;
+        }
+        if (this.recording) this.stop();
+        else await this.start();
+      },
+      async start() {
+        try {
+          this.stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+          this.ctx = new AudioContext();
+          const src = this.ctx.createMediaStreamSource(this.stream);
+          this.dest = this.ctx.createMediaStreamDestination();
+          src.connect(this.dest);
+          const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+          this.recorder = new MediaRecorder(this.dest.stream, { mimeType: mime });
+          this.chunks = [];
+          this.recorder.ondataavailable = e => { if (e.data?.size) this.chunks.push(e.data); };
+          this.recorder.onstop = () => {
+            const blob = new Blob(this.chunks, { type: mime });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tts-${Date.now()}.webm`;
+            a.click();
+            URL.revokeObjectURL(url);
+            this.cleanup();
+          };
+          this.recorder.start();
+          this.recording = true;
+          App.el.recordingDot.classList.remove('hidden');
+          App.el.downloadLabel.textContent = App.t('btnDownloadRecording');
+          App.showToast(App.t('toastRecordingStart'));
+        } catch {
+          this.cleanup();
+          App.showToast(App.t('toastRecordingError'));
+        }
+      },
+      stop() {
+        if (!this.recording) return;
+        App.showToast(App.t('toastRecordingStop'));
+        if (this.recorder && this.recorder.state !== 'inactive') this.recorder.stop();
+        else this.cleanup();
+      },
+      cleanup() {
+        this.recording = false;
+        if (this.stream) {
+          this.stream.getTracks().forEach(t => t.stop());
+          this.stream = null;
+        }
+        if (this.ctx) {
+          this.ctx.close();
+          this.ctx = null;
+        }
+        this.dest = null;
+        this.recorder = null;
+        App.el.recordingDot.classList.add('hidden');
+        App.el.downloadLabel.textContent = App.t('btnDownload');
+      }
+    };
 
-            async toggleRecord() {
-                if (this.isRecording) {
-                    this.stopRecord();
-                } else {
-                    await this.startRecord();
-                }
-            },
+    function bind() {
+      App.el.langZh.onclick = () => { App.lang = 'zh'; Store.setLang('zh'); App.applyLang(); App.loadVoices(); };
+      App.el.langEn.onclick = () => { App.lang = 'en'; Store.setLang('en'); App.applyLang(); App.loadVoices(); };
+      App.el.voiceSearch.oninput = () => App.loadVoices();
+      App.el.text.oninput = () => App.updateStats();
+      App.el.rate.oninput = (e) => { App.el.rateVal.textContent = `${e.target.value}x`; App.updateStats(); };
+      App.el.pitch.oninput = (e) => { App.el.pitchVal.textContent = e.target.value; };
+      App.el.btnSpeak.onclick = () => App.speak();
+      App.el.btnPause.onclick = () => App.pause();
+      App.el.btnStop.onclick = () => App.stop();
+      App.el.btnDownload.onclick = () => Recorder.toggle();
+      App.el.btnCopy.onclick = async () => {
+        await navigator.clipboard.writeText(App.el.text.value || '');
+        App.showToast(App.t('toastCopied'));
+      };
+      App.el.btnClear.onclick = () => {
+        App.el.text.value = '';
+        App.updateStats();
+        App.showToast(App.t('toastCleared'));
+      };
+    }
 
-            async startRecord() {
-                try {
-                    // For pure client-side recording of tab audio, we use getDisplayMedia
-                    // This is the most reliable way to capture system/tab sound in the browser.
-                    const stream = await navigator.mediaDevices.getDisplayMedia({
-                        video: { width: 1 }, // Minimum video
-                        audio: true
-                    });
-
-                    this.mediaRecorder = new MediaRecorder(stream);
-                    this.chunks = [];
-
-                    this.mediaRecorder.ondataavailable = (e) => {
-                        if (e.data.size > 0) this.chunks.push(e.data);
-                    };
-
-                    this.mediaRecorder.onstop = () => {
-                        const blob = new Blob(this.chunks, { type: 'audio/webm' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `tts-${Date.now()}.webm`;
-                        a.click();
-                        
-                        // Stop all tracks
-                        stream.getTracks().forEach(t => t.stop());
-                        this.isRecording = false;
-                        UI.toggleRecordUI(false);
-                    };
-
-                    this.mediaRecorder.start();
-                    this.isRecording = true;
-                    UI.toggleRecordUI(true);
-                    UI.showToast('录制已开始，请点击“开始朗读”', 'info');
-                    
-                } catch (err) {
-                    console.error('Recording failed:', err);
-                    UI.showToast('无法启动录制：请确保选择了“分享音频”', 'error');
-                }
-            },
-
-            stopRecord() {
-                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-                    this.mediaRecorder.stop();
-                }
-            }
-        };
-
-        /**
-         * 4. UI Controller (DOM, Events, Toast)
-         */
-        const UI = {
-            isLangEn: false,
-
-            updateStatus(state, extra = '') {
-                const badge = document.getElementById('status-badge');
-                const text = document.getElementById('status-text');
-                const spinner = document.getElementById('status-spinner');
-                const dot = document.getElementById('ready-dot');
-                const readyText = document.getElementById('ready-text');
-
-                badge.classList.remove('hidden');
-                spinner.classList.remove('hidden');
-                dot.classList.remove('bg-green-500', 'bg-yellow-500', 'bg-blue-500');
-
-                const msgs = {
-                    loading: this.isLangEn ? 'LOADING VOICES...' : '加载语音库...',
-                    ready: this.isLangEn ? 'READY' : '就绪',
-                    speaking: this.isLangEn ? 'READING...' : '正在朗读...',
-                    paused: this.isLangEn ? 'PAUSED' : '已暂停',
-                    stopped: this.isLangEn ? 'STOPPED' : '已停止',
-                    ended: this.isLangEn ? 'FINISHED' : '朗读结束',
-                    error: this.isLangEn ? 'ERROR' : '错误'
-                };
-
-                text.textContent = msgs[state] + (extra ? ` (${extra})` : '');
-                
-                if (state === 'ready' || state === 'ended' || state === 'stopped') {
-                    spinner.classList.add('hidden');
-                    dot.classList.add('bg-green-500');
-                    readyText.textContent = msgs[state];
-                    document.getElementById('icon-play').textContent = '▶️';
-                } else if (state === 'speaking') {
-                    dot.classList.add('bg-blue-500');
-                    document.getElementById('icon-play').textContent = '⏸️';
-                } else if (state === 'paused') {
-                    dot.classList.add('bg-yellow-500');
-                }
-            },
-
-            updateProgress(percent) {
-                document.getElementById('reading-progress').style.width = percent + '%';
-            },
-
-            toggleRecordUI(active) {
-                const dot = document.getElementById('recording-dot');
-                const icon = document.getElementById('icon-record');
-                if (active) {
-                    dot.classList.remove('hidden');
-                    icon.classList.add('text-red-500');
-                } else {
-                    dot.classList.add('hidden');
-                    icon.classList.remove('text-red-500');
-                }
-            },
-
-            showToast(msg, type) {
-                // Use status bar as toast
-                const text = document.getElementById('status-text');
-                const badge = document.getElementById('status-badge');
-                text.textContent = msg;
-                badge.classList.remove('hidden');
-                setTimeout(() => badge.classList.add('hidden'), 3000);
-            },
-
-            copyText() {
-                const text = document.getElementById('text').value;
-                navigator.clipboard.writeText(text).then(() => this.showToast('已复制', 'success'));
-            },
-
-            clearText() {
-                document.getElementById('text').value = '';
-                Engine.bindStats();
-                this.showToast('已清空', 'info');
-            },
-
-            renderHistory() {
-                const list = document.getElementById('history-list');
-                const container = document.getElementById('history-container');
-                const history = Storage.getHistory();
-                
-                if (history.length === 0) {
-                    container.classList.add('hidden');
-                    return;
-                }
-                
-                container.classList.remove('hidden');
-                list.innerHTML = '';
-                history.forEach(item => {
-                    const btn = document.createElement('button');
-                    btn.className = 'text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-400 px-3 py-1 rounded-full transition-all truncate max-w-[120px]';
-                    btn.textContent = item;
-                    btn.onclick = () => {
-                        document.getElementById('text').value = item;
-                        Engine.bindStats();
-                    };
-                    list.appendChild(btn);
-                });
-            },
-
-            toggleLang() {
-                this.isLangEn = !this.isLangEn;
-                document.querySelector('h2').innerHTML = this.isLangEn ? 'Make Text <span class="gradient-text">Talk</span>' : '让文字 <span class="gradient-text">开口说话</span>';
-                document.getElementById('text-play').textContent = this.isLangEn ? 'Start Reading' : '开始朗读';
-                Engine.loadVoices();
-            }
-        };
-
-        // Initialize
-        window.onload = () => {
-            Engine.init();
-            UI.renderHistory();
-            
-            // Slider Value Updates
-            document.getElementById('rate').oninput = (e) => document.getElementById('rateVal').textContent = e.target.value + 'x';
-            document.getElementById('pitch').oninput = (e) => document.getElementById('pitchVal').textContent = e.target.value;
-
-            // Service Worker Registration for PWA
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW failed', err));
-            }
-
-            // Default Text
-            const textEl = document.getElementById('text');
-            if (!textEl.value) {
-                textEl.value = '欢迎使用 2026 升级版免费在线 TTS 工具。我们现在支持超长文本分段播放，再也不用担心朗读中断了。点击右侧的下载图标即可开启录制模式。所有处理都在本地完成，保护您的隐私。';
-                Engine.bindStats();
-            }
-        };
-    </script>
+    window.addEventListener('load', () => {
+      App.applyLang();
+      bind();
+      if (!App.el.text.value.trim()) App.el.text.value = App.lang === 'zh' ? '欢迎使用免费在线 TTS 工具，支持真实中英切换与本地下载录音。' : 'Welcome to Free TTS Tool with real bilingual switch and local recording download.';
+      App.updateStats();
+      App.renderHistory();
+      App.setStatus('idle');
+      App.el.btnDownload.disabled = !Recorder.supported();
+      App.loadVoices();
+      if (typeof App.synth.onvoiceschanged !== 'undefined') App.synth.onvoiceschanged = () => App.loadVoices();
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  </script>
 </body>
 </html>
