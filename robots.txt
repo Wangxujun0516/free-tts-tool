@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://free-tts-tool.gcpdl.workers.dev/sitemap.xml
